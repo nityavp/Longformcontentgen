@@ -23,8 +23,8 @@ blog_styles = [
     "How to [Keyword] in [Number] Easy Steps",
     "A Step-by-Step Guide to [Keyword]",
     "How to Master [Keyword] Quickly",
-    "The Benefits of [Keyword] for Your [Business/Life]",
-    "Why [Keyword] is a Game-Changer for [Activity]",
+    "The Benefits of [Keyword] for Your Business",
+    "Why [Keyword] is a Game-Changer?",
     "How [Keyword] Can Improve Your [Specific Outcome]",
     "[Keyword] vs [Keyword]: Which is Better?",
     "Comparing [Keyword] and [Keyword]: Pros and Cons",
@@ -69,7 +69,7 @@ def generate_posts(api_key, keyword, num_posts):
     for _ in range(num_posts):
         chosen_style = random.choice(blog_styles)
         topics.append(chosen_style.replace('[Keyword]', keyword))
-        custom_prompt = f"Write an SEO friendly blog on the topic: '{chosen_style.replace('[Keyword]', keyword)}'"
+        custom_prompt = f"Write an SEO friendly optimized blog on the topic: '{chosen_style.replace('[Keyword]', keyword)}'"
         
         messages = [{"role": "system", "content": custom_prompt}]
         try:
