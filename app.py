@@ -23,8 +23,8 @@ blog_styles = [
     "How to [Keyword] in [Number] Easy Steps",
     "A Step-by-Step Guide to [Keyword]",
     "How to Master [Keyword] Quickly",
-    "The Benefits of [Keyword] for Your Business",
-    "Why [Keyword] is a Game-Changer?",
+    "The Benefits of [Keyword] for Your [Business/Life]",
+    "Why [Keyword] is a Game-Changer for [Activity]",
     "How [Keyword] Can Improve Your [Specific Outcome]",
     "[Keyword] vs [Keyword]: Which is Better?",
     "Comparing [Keyword] and [Keyword]: Pros and Cons",
@@ -63,13 +63,22 @@ if 'posts_data' not in st.session_state:
     st.session_state['posts_data'] = pd.DataFrame(columns=['Date', 'Content', 'Topic', 'Status'])
 
 # Function to generate posts using the OpenAI API
-def generate_posts(api_key, keyword, num_posts):
+def generate_posts(api_key, keyword, num_posts, custom_topic=None, additional_context=None):
     posts = []
     topics = []
     for _ in range(num_posts):
-        chosen_style = random.choice(blog_styles)
-        topics.append(chosen_style.replace('[Keyword]', keyword))
-        custom_prompt = f"Write an SEO friendly optimized blog on the topic: '{chosen_style.replace('[Keyword]', keyword)}'"
+        if custom_topic:
+            chosen_topic = custom_topic
+        else:
+            chosen_style = random.choice(blog_styles)
+            chosen_topic = chosen_style.replace('[Keyword]', keyword)
+        
+        topics.append(chosen_topic)
+        
+        if additional_context:
+            custom_prompt = f"Write an SEO friendly blog on the topic: '{chosen_topic}' with additional context: '{additional_context}'"
+        else:
+            custom_prompt = f"Write an SEO friendly blog on the topic: '{chosen_topic}'"
         
         messages = [{"role": "system", "content": custom_prompt}]
         try:
@@ -87,12 +96,23 @@ def generate_posts(api_key, keyword, num_posts):
 
 # User interface for entering keyword and number of posts
 keyword = st.text_input('Enter Keyword')
+have_blog_idea = st.radio('Do you have a blog idea?', ['No', 'Yes'])
+
+if have_blog_idea == 'Yes':
+    custom_topic = st.text_input('Enter your blog topic')
+    additional_context = None
+    if st.radio('Do you have any additional context?', ['No', 'Yes']) == 'Yes':
+        additional_context = st.text_area('Enter additional context')
+else:
+    custom_topic = None
+    additional_context = None
+
 num_posts = st.number_input('Number of Posts', min_value=1, max_value=20, value=1)
 generate_btn = st.button('Generate Posts')
 
 # Generate posts when button is clicked
 if generate_btn:
-    generated_posts, selected_topics = generate_posts(api_key, keyword, num_posts)
+    generated_posts, selected_topics = generate_posts(api_key, keyword, num_posts, custom_topic, additional_context)
     new_rows = [{'Date': pd.Timestamp('now'), 'Content': post, 'Topic': topic, 'Status': 'Pending'} for post, topic in zip(generated_posts, selected_topics)]
     st.session_state.posts_data = pd.concat([st.session_state.posts_data, pd.DataFrame(new_rows)], ignore_index=True)
 
@@ -102,25 +122,15 @@ edited_data = st.experimental_data_editor(st.session_state.posts_data, num_rows=
 # Update session state with edited data
 st.session_state.posts_data = edited_data
 
-# Function to generate an image based on selected row
-def generate_image(api_key, style, content):
-    try:
-        client = OpenAI(api_key=api_key)
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=f"{style} {content}",
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-        image_url = response.data[0].url
-        return image_url
-    except Exception as e:
-        st.error(f"Failed to generate image: {e}")
-        return None
+# Display the generated content
+st.write("Generated Content")
+for index, row in edited_data.iterrows():
+    st.write(f"**Topic:** {row['Topic']}")
+    st.write(f"**Content:** {row['Content']}")
+    st.write("---")
 
-# Function to create a zip file with content and image
-def create_zip(content, image_url):
+# Function to create a zip file with content
+def create_zip(content):
     zip_path = '/mnt/data/final_posts.zip'
     with zipfile.ZipFile(zip_path, 'w') as zipf:
         # Save the content
@@ -129,26 +139,15 @@ def create_zip(content, image_url):
             f.write(content)
         zipf.write(content_path, 'content.txt')
         os.remove(content_path)
-        
-        # Download and save the image
-        image_path = '/mnt/data/image.png'
-        img_data = requests.get(image_url).content
-        with open(image_path, 'wb') as f:
-            f.write(img_data)
-        zipf.write(image_path, 'image.png')
-        os.remove(image_path)
     
     return zip_path
 
-# Allow user to select a row
-selected_row = st.selectbox('Select a row to generate an image', edited_data.index)
-selected_style = st.text_input('Enter Image Style for Selected Row')
-if st.button('Generate Image for Selected Row'):
+# Allow user to select a row for downloading
+selected_row = st.selectbox('Select a row to download content', edited_data.index)
+if st.button('Download Selected Content'):
     selected_content = edited_data.loc[selected_row, 'Content']
-    image_url = generate_image(api_key, selected_style, selected_content)
-    if image_url:
-        st.image(image_url, caption='Generated Image')
-        zip_path = create_zip(selected_content, image_url)
-        with open(zip_path, "rb") as file:
-            st.download_button('Download Content and Image in Zip', file, file_name='final_posts.zip')
+    zip_path = create_zip(selected_content)
+    with open(zip_path, "rb") as file:
+        st.download_button('Download Content in Zip', file, file_name='final_posts.zip')
+
 
