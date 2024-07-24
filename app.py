@@ -60,13 +60,15 @@ blog_styles = [
 
 # Initialize session state for posts data
 if 'posts_data' not in st.session_state:
-    st.session_state['posts_data'] = pd.DataFrame(columns=['Date', 'Content', 'Platform', 'Status'])
+    st.session_state['posts_data'] = pd.DataFrame(columns=['Date', 'Content', 'Topic', 'Status'])
 
 # Function to generate posts using the OpenAI API
 def generate_posts(api_key, keyword, num_posts):
     posts = []
+    topics = []
     for _ in range(num_posts):
         chosen_style = random.choice(blog_styles)
+        topics.append(chosen_style.replace('[Keyword]', keyword))
         custom_prompt = f"Write an SEO friendly blog on the topic: '{chosen_style.replace('[Keyword]', keyword)}'"
         
         messages = [{"role": "system", "content": custom_prompt}]
@@ -80,8 +82,8 @@ def generate_posts(api_key, keyword, num_posts):
             posts.append(response)
         except Exception as e:
             st.error(f"Failed to generate posts: {e}")
-            return []
-    return posts
+            return [], []
+    return posts, topics
 
 # User interface for entering keyword and number of posts
 keyword = st.text_input('Enter Keyword')
@@ -90,8 +92,8 @@ generate_btn = st.button('Generate Posts')
 
 # Generate posts when button is clicked
 if generate_btn:
-    generated_posts = generate_posts(api_key, keyword, num_posts)
-    new_rows = [{'Date': pd.Timestamp('now'), 'Content': post, 'Platform': 'Blog', 'Status': 'Pending'} for post in generated_posts]
+    generated_posts, selected_topics = generate_posts(api_key, keyword, num_posts)
+    new_rows = [{'Date': pd.Timestamp('now'), 'Content': post, 'Topic': topic, 'Status': 'Pending'} for post, topic in zip(generated_posts, selected_topics)]
     st.session_state.posts_data = pd.concat([st.session_state.posts_data, pd.DataFrame(new_rows)], ignore_index=True)
 
 # Display and edit the DataFrame containing generated posts
@@ -149,3 +151,4 @@ if st.button('Generate Image for Selected Row'):
         zip_path = create_zip(selected_content, image_url)
         with open(zip_path, "rb") as file:
             st.download_button('Download Content and Image in Zip', file, file_name='final_posts.zip')
+
